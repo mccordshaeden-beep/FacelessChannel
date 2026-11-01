@@ -25,7 +25,7 @@
 #review{flex:1;min-height:0;display:flex;flex-direction:column}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-tap-highlight-color:transparent}
 body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) max(14px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(14px,env(safe-area-inset-left));overscroll-behavior:none}
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 2px 8px;gap:8px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 2px 8px;gap:8px 8px}
 h1{font-family:var(--display);font-size:22px;margin:0;letter-spacing:-.01em}
 .tabs{display:flex;gap:6px}
 .tab{background:none;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 12px;font:600 13px var(--body)}
@@ -72,6 +72,21 @@ dialog form{display:flex;flex-direction:column;gap:10px}
 dialog label{font-size:12px;color:var(--muted);font-weight:600;display:flex;flex-direction:column;gap:5px}
 .drow{display:flex;gap:8px;justify-content:flex-end}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.acct{background:var(--card);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.acct-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.acct-name{font-family:var(--display);font-size:17px}
+.state{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--line);color:var(--muted);white-space:nowrap}
+.state.mid{background:#3a2e14;color:var(--accent)}.state.done{background:#163627;color:var(--yes)}
+.acct label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.acct input[type=text],.acct select{font:15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px;width:100%}
+.chk{display:flex;align-items:center;gap:10px;font-size:14px}
+.chk input{width:20px;height:20px;accent-color:var(--yes);margin:0}
+.gate{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:9px;line-height:1.45}
+.note{font-size:13px;color:var(--muted);background:var(--card);border-radius:12px;padding:12px 14px;line-height:1.45}
+.note b{color:var(--accent)}
+.plat{border:1px solid var(--line);background:none;color:var(--muted);border-radius:999px;padding:7px 11px;font:600 13px var(--body)}
+.plat[aria-pressed="true"]{background:#163627;border-color:var(--yes);color:var(--yes)}
+.sub{font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion: reduce){.card{transition:none!important}}
 </style>
 </head>
@@ -81,6 +96,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   <nav class="tabs" id="tabs" hidden>
     <button class="tab" id="tab-review" aria-selected="true">Review <span id="n-review"></span></button>
     <button class="tab" id="tab-ready" aria-selected="false">To post <span id="n-ready"></span></button>
+    <button class="tab" id="tab-accounts" aria-selected="false">Accounts</button>
   </nav>
 </header>
 
@@ -104,6 +120,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   </section>
 
   <section class="list" id="ready" hidden></section>
+  <section class="list" id="accounts" hidden></section>
 </main>
 
 <dialog id="editor">
@@ -254,8 +271,9 @@ async function renderReady(){
     return `<div class="row" data-id="${s.id}"><span class="cat">${esc(s.category||"Story")}</span><div class="ttl">${esc(s.title)}</div>
       <div class="cap">${esc(s.caption||"")} ${esc(s.hashtags||"")}</div>
       <div class="row-actions">${url?`<a class="pill" href="${url}" target="_blank" rel="noopener">Open video</a>`:""}
-        <button class="pill" data-act="copy">Copy caption</button><button class="pill" data-act="edit">Edit</button>
-        <button class="pill solid" data-act="posted">Mark posted</button></div></div>`;
+        <button class="pill" data-act="copy">Copy caption</button><button class="pill" data-act="edit">Edit</button></div>
+      <span class="sub">Tap each place once it's posted</span>
+      <div class="row-actions">${POST_TO.map(([k,n])=>`<button class="plat" data-plat="${k}" aria-pressed="${!!(s.posted_to||{})[k]}">${n}</button>`).join("")}</div></div>`;
   }));
   box.innerHTML = rows.join("");
 }
@@ -264,21 +282,69 @@ $("#ready").addEventListener("click", async e => {
   const s = ready.find(r => r.id === b.closest(".row").dataset.id); if (!s) return;
   if (b.dataset.act === "copy"){ try { await navigator.clipboard.writeText(`${s.caption||""}\n\n${s.hashtags||""}`.trim()); toast("Caption copied"); } catch { toast("Couldn't copy"); } }
   if (b.dataset.act === "edit") openEditor(s);
-  if (b.dataset.act === "posted"){
-    const {error} = await sb.from("stories").update({status:"posted", posted_at:new Date().toISOString()}).eq("id", s.id);
-    if (error) return toast("Couldn't update");
-    ready = ready.filter(r => r.id !== s.id); renderCounts(); renderReady(); toast("Marked posted");
-  }
+});
+const POST_TO = [["tiktok","TikTok"],["youtube","YouTube"],["instagram","Instagram"],["facebook","Facebook"]];
+$("#ready").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-plat]"); if (!b) return;
+  const s = ready.find(r => r.id === b.closest(".row").dataset.id); if (!s) return;
+  const posted_to = {...(s.posted_to||{}), [b.dataset.plat]: b.getAttribute("aria-pressed") !== "true"};
+  const all = POST_TO.every(([k]) => posted_to[k]);
+  const patch = all ? {posted_to, status:"posted", posted_at:new Date().toISOString()} : {posted_to};
+  const {error} = await sb.from("stories").update(patch).eq("id", s.id);
+  if (error) return toast("Couldn't update");
+  s.posted_to = posted_to;
+  if (all){ ready = ready.filter(r => r.id !== s.id); renderCounts(); renderReady(); toast("Posted everywhere"); }
+  else b.setAttribute("aria-pressed", String(!!posted_to[b.dataset.plat]));
+});
+
+// ---------- accounts ----------
+const GATES = {
+  tiktok:"<b>Pays at</b> 10K followers + 100K views in 30 days. Only videos over 1 minute earn.",
+  youtube:"<b>Pays at</b> 1K subscribers + 10M Shorts views in 90 days. Fan funding unlocks at 500 subscribers + 3M views.",
+  instagram:"<b>No open pay program.</b> Use it for reach and future brand deals.",
+  facebook:"<b>Pays at</b> about 10K followers plus watch time, through Content Monetization.",
+  snapchat:"<b>Pays at</b> 50K followers. Fully AI videos are excluded, so wait for your own voice."
+};
+const ACCT_STATES = ["Not started","Account created","Profile done"];
+let accounts = [];
+async function loadAccounts(){
+  const {data, error} = await sb.from("accounts").select("*").order("sort");
+  if (error){ toast("Couldn't load accounts"); return; }
+  accounts = data; renderAccounts();
+}
+function renderAccounts(){
+  const box = $("#accounts");
+  if (!accounts.length){ box.innerHTML = `<div class="empty"><b>No accounts yet</b>Your platforms will show up here.</div>`; return; }
+  const done = accounts.filter(a => a.status === "Profile done").length;
+  box.innerHTML = `<div class="note"><b>No passwords here.</b> Keep them in your password manager. This page tracks which email and handle you used and whether 2-step verification is on. ${done} of ${accounts.length} ready.</div>` +
+    accounts.map(a => `<article class="acct" data-p="${a.platform}">
+      <div class="acct-top"><span class="acct-name">${esc(a.name)}</span><span class="state ${a.status==="Profile done"?"done":a.status==="Account created"?"mid":""}">${esc(a.status)}</span></div>
+      <label class="f">Status<select id="ac-st-${a.platform}" data-k="status">${ACCT_STATES.map(s=>`<option${s===a.status?" selected":""}>${s}</option>`).join("")}</select></label>
+      <label class="f">Handle<input type="text" id="ac-h-${a.platform}" data-k="handle" value="${esc(a.handle)}" placeholder="@handle" autocomplete="off" autocapitalize="off"></label>
+      <label class="f">Login email<input type="text" id="ac-e-${a.platform}" data-k="login_email" value="${esc(a.login_email)}" placeholder="channel Gmail" autocomplete="off" autocapitalize="off"></label>
+      <label class="chk"><input type="checkbox" id="ac-pm-${a.platform}" data-k="in_manager"${a.in_manager?" checked":""}> Password saved in password manager</label>
+      <label class="chk"><input type="checkbox" id="ac-tf-${a.platform}" data-k="two_factor"${a.two_factor?" checked":""}> 2-step verification on</label>
+      <div class="gate">${GATES[a.platform]||""}</div></article>`).join("");
+}
+$("#accounts").addEventListener("change", async e => {
+  const el = e.target, card = el.closest(".acct"); if (!card || !el.dataset.k) return;
+  const val = el.type === "checkbox" ? el.checked : el.value.trim();
+  const {error} = await sb.from("accounts").update({[el.dataset.k]: val, updated_at:new Date().toISOString()}).eq("platform", card.dataset.p);
+  if (error) return toast("Couldn't save");
+  const a = accounts.find(x => x.platform === card.dataset.p); if (a) a[el.dataset.k] = val;
+  toast("Saved"); if (el.dataset.k === "status") renderAccounts();
 });
 
 // ---------- tabs ----------
 function show(v){
-  view = v; $("#tab-review").setAttribute("aria-selected", v==="review"); $("#tab-ready").setAttribute("aria-selected", v==="ready");
-  $("#review").hidden = v!=="review"; $("#ready").hidden = v!=="ready";
+  view = v;
+  for (const k of ["review","ready","accounts"]){ $("#tab-"+k).setAttribute("aria-selected", v===k); $("#"+k).hidden = v!==k; }
+  if (v === "accounts") return loadAccounts();
   v === "review" ? renderDeck() : renderReady();
 }
 $("#tab-review").onclick = () => show("review");
 $("#tab-ready").onclick = () => show("ready");
+$("#tab-accounts").onclick = () => show("accounts");
 
 async function start(){
   $("#login").hidden = true; $("#tabs").hidden = false; show("review"); await load();
