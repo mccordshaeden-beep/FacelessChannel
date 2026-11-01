@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14121a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Story Queue">
+<title>Story Queue</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Phone-first review deck: one card at a time, swipe right approves, left rejects. Dark-only, like a camera roll. */
+:root{
+  --bg:#14121a; --card:#1f1c28; --ink:#f1eff6; --muted:#9d98ab; --line:#2f2b3a;
+  --yes:#3ccf8e; --no:#f2604c; --accent:#ffb347; color-scheme:dark;
+  --display:"Bricolage Grotesque","Arial Black",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+#review{flex:1;min-height:0;display:flex;flex-direction:column}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) max(14px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(14px,env(safe-area-inset-left));overscroll-behavior:none}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 2px 8px;gap:8px}
+h1{font-family:var(--display);font-size:22px;margin:0;letter-spacing:-.01em}
+.tabs{display:flex;gap:6px}
+.tab{background:none;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 12px;font:600 13px var(--body)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+.deck{position:relative;flex:1;min-height:0}
+.card{position:absolute;inset:0;background:var(--card);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-y;will-change:transform;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.card.under{transform:scale(.96) translateY(10px);filter:brightness(.7)}
+.vid{position:relative;flex:1;min-height:0;background:#000}
+.vid video{width:100%;height:100%;object-fit:contain;display:block}
+.sound{position:absolute;right:10px;top:10px;background:rgba(0,0,0,.55);color:#fff;border:0;border-radius:999px;padding:7px 12px;font:600 12px var(--body)}
+.stamp{position:absolute;top:24px;padding:6px 14px;border:4px solid;border-radius:10px;font:800 26px var(--display);opacity:0;transform:rotate(-12deg)}
+.stamp.yes{left:20px;color:var(--yes);border-color:var(--yes)}
+.stamp.no{right:20px;color:var(--no);border-color:var(--no);transform:rotate(12deg)}
+.meta{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px}
+.cat{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.ttl{font-family:var(--display);font-size:18px;line-height:1.2}
+.cap{font-size:14px;color:var(--muted);line-height:1.4;max-height:3.9em;overflow:hidden}
+.edit{align-self:flex-start;background:none;border:0;color:var(--accent);font:600 13px var(--body);padding:0}
+.actions{display:flex;justify-content:center;gap:28px;padding:14px 0 10px}
+.btn{width:62px;height:62px;border-radius:50%;border:2px solid;background:var(--card);font:800 26px var(--display);display:grid;place-items:center}
+.btn.no{color:var(--no);border-color:var(--no)}.btn.yes{color:var(--yes);border-color:var(--yes)}
+.btn.undo{width:46px;height:46px;align-self:center;border-color:var(--line);color:var(--muted);font-size:18px}
+.btn:disabled{opacity:.35}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;color:var(--muted);padding:24px}
+.empty b{color:var(--ink);font-family:var(--display);font-size:20px}
+.list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:16px}
+.row{background:var(--card);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.row .ttl{font-size:16px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pill{border:1px solid var(--line);background:none;color:var(--ink);border-radius:999px;padding:7px 12px;font:600 13px var(--body);text-decoration:none}
+.pill.solid{background:var(--yes);color:#06150e;border-color:var(--yes)}
+form.login{margin:auto 0;display:flex;flex-direction:column;gap:12px;max-width:380px;width:100%;align-self:center;padding:24px 4px}
+form.login p{color:var(--muted);margin:0 0 6px;line-height:1.5}
+input,textarea{font:16px var(--body);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%}
+textarea{min-height:110px;resize:vertical}
+.primary{background:var(--ink);color:var(--bg);border:0;border-radius:10px;padding:13px;font:700 15px var(--body)}
+.msg{color:var(--no);font-size:14px;min-height:1.2em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font:600 14px var(--body);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;width:min(520px,94vw);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog form{display:flex;flex-direction:column;gap:10px}
+dialog label{font-size:12px;color:var(--muted);font-weight:600;display:flex;flex-direction:column;gap:5px}
+.drow{display:flex;gap:8px;justify-content:flex-end}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.card{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Story Queue</h1>
+  <nav class="tabs" id="tabs" hidden>
+    <button class="tab" id="tab-review" aria-selected="true">Review <span id="n-review"></span></button>
+    <button class="tab" id="tab-ready" aria-selected="false">To post <span id="n-ready"></span></button>
+  </nav>
+</header>
+
+<main id="main">
+  <form class="login" id="login" hidden>
+    <p>Sign in to review today's videos.</p>
+    <input id="email" type="email" autocomplete="username" placeholder="Email" required>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+    <button class="primary" id="signin" type="submit">Sign in</button>
+    <button class="pill" id="signup" type="button">First time? Create your login</button>
+    <div class="msg" id="login-msg" role="status"></div>
+  </form>
+
+  <section id="review" hidden>
+    <div class="deck" id="deck"></div>
+    <div class="actions" id="actions">
+      <button class="btn no" id="b-no" aria-label="Reject">✕</button>
+      <button class="btn undo" id="b-undo" aria-label="Undo last swipe" disabled>↺</button>
+      <button class="btn yes" id="b-yes" aria-label="Approve">✓</button>
+    </div>
+  </section>
+
+  <section class="list" id="ready" hidden></section>
+</main>
+
+<dialog id="editor">
+  <form method="dialog" id="edit-form">
+    <label>Title on screen<input id="ed-title" type="text"></label>
+    <label>Caption<textarea id="ed-caption"></textarea></label>
+    <label>Hashtags<input id="ed-tags" type="text"></label>
+    <div class="drow"><button class="pill" value="cancel">Cancel</button><button class="pill solid" value="save" id="ed-save">Save</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = "https://zaoqdgrupheegysoevhk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Y69lufjl4ExiZ-zZ2myRVA_zrLJpJrb"; // publishable key: safe in the app, the database rules do the protecting
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth:{persistSession:true, autoRefreshToken:true}});
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let queue = [], ready = [], history = [], muted = true, view = "review";
+
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("show"),1800); }
+
+async function signedUrl(path){
+  const {data, error} = await sb.storage.from("videos").createSignedUrl(path, 3600);
+  return error ? null : data.signedUrl;
+}
+
+// ---------- auth ----------
+$("#login").addEventListener("submit", async e => {
+  e.preventDefault(); $("#login-msg").textContent = "";
+  const {error} = await sb.auth.signInWithPassword({email:$("#email").value.trim(), password:$("#password").value});
+  if (error) $("#login-msg").textContent = error.message === "Email not confirmed" ? "Check your email and tap the confirmation link first." : "Wrong email or password.";
+  else start();
+});
+$("#signup").addEventListener("click", async () => {
+  const email = $("#email").value.trim(), password = $("#password").value;
+  if (!email || password.length < 10){ $("#login-msg").textContent = "Enter your email and a password of at least 10 characters, then tap this again."; return; }
+  const {error} = await sb.auth.signUp({email, password});
+  $("#login-msg").textContent = error ? error.message : "Check your email for a confirmation link, then come back and sign in.";
+});
+
+// ---------- data ----------
+async function load(){
+  const {data, error} = await sb.from("stories").select("*").in("status",["ready","approved"]).order("created_at");
+  if (error){ toast("Couldn't load the queue"); return; }
+  queue = data.filter(s => s.status === "ready");
+  ready = data.filter(s => s.status === "approved");
+  if (!queue.length && !ready.length){
+    const {count} = await sb.from("stories").select("id",{count:"exact",head:true});
+    if (count === null) { showNoAccess(); return; }
+  }
+  renderCounts(); view === "review" ? renderDeck() : renderReady();
+}
+function showNoAccess(){
+  $("#deck").innerHTML = `<div class="empty"><b>No access yet</b>This login isn't on the approved list. Ask Claude to add your email.</div>`;
+}
+function renderCounts(){ $("#n-review").textContent = queue.length || ""; $("#n-ready").textContent = ready.length || ""; }
+
+async function cardHtml(s, under){
+  const url = s.video_path ? await signedUrl(s.video_path) : null;
+  return `<article class="card${under?" under":""}" data-id="${s.id}">
+    <div class="vid">${url?`<video src="${url}" playsinline loop ${under?"preload=\"metadata\"":"autoplay"} ${muted?"muted":""}></video>`:""}
+      ${under?"":`<button class="sound" type="button">${muted?"Tap for sound":"Sound on"}</button>`}
+      <span class="stamp yes">POST</span><span class="stamp no">SKIP</span></div>
+    <div class="meta"><span class="cat">${esc(s.category||"Story")}${s.duration_s?` · ${Math.round(s.duration_s)}s`:""}</span>
+      <div class="ttl">${esc(s.title)}</div><div class="cap">${esc(s.caption||"")}</div>
+      ${under?"":`<button class="edit" type="button">Edit title or caption</button>`}</div>
+  </article>`;
+}
+async function renderDeck(){
+  const deck = $("#deck");
+  if (!queue.length){
+    deck.innerHTML = `<div class="empty"><b>All caught up</b>New videos show up here after your PC renders them.</div>`;
+    $("#b-yes").disabled = $("#b-no").disabled = true; return;
+  }
+  $("#b-yes").disabled = $("#b-no").disabled = false;
+  const html = (queue[1] ? await cardHtml(queue[1], true) : "") + await cardHtml(queue[0], false);
+  deck.innerHTML = html;
+  const top = deck.querySelector(".card:not(.under)");
+  attachSwipe(top);
+  top.querySelector(".sound").onclick = () => { muted = !muted; const v=top.querySelector("video"); if(v){v.muted=muted; v.play().catch(()=>{});} top.querySelector(".sound").textContent = muted?"Tap for sound":"Sound on"; };
+  top.querySelector(".edit").onclick = () => openEditor(queue[0]);
+}
+
+async function decide(approve){
+  const s = queue[0]; if (!s) return;
+  const status = approve ? "approved" : "rejected";
+  const {error} = await sb.from("stories").update({status, reviewed_at:new Date().toISOString()}).eq("id", s.id);
+  if (error){ toast("Couldn't save. Check your connection."); renderDeck(); return; }
+  history.push({s, status}); $("#b-undo").disabled = false;
+  queue.shift(); if (approve) ready.push({...s, status});
+  toast(approve ? "Approved" : "Skipped"); renderCounts(); renderDeck();
+}
+$("#b-yes").onclick = () => flyOut(true);
+$("#b-no").onclick = () => flyOut(false);
+$("#b-undo").onclick = async () => {
+  const last = history.pop(); if (!last) return;
+  const {error} = await sb.from("stories").update({status:"ready", reviewed_at:null}).eq("id", last.s.id);
+  if (error){ toast("Couldn't undo"); history.push(last); return; }
+  ready = ready.filter(r => r.id !== last.s.id); queue.unshift({...last.s, status:"ready"});
+  $("#b-undo").disabled = !history.length; renderCounts(); renderDeck(); toast("Undone");
+};
+
+// ---------- swipe ----------
+function flyOut(approve){
+  const card = $("#deck .card:not(.under)"); if (!card) return;
+  card.style.transition = "transform .25s ease-out";
+  card.style.transform = `translateX(${approve?"120vw":"-120vw"}) rotate(${approve?18:-18}deg)`;
+  setTimeout(() => decide(approve), 200);
+}
+function attachSwipe(card){
+  let x0=null, y0=null, dx=0, dragging=false;
+  const yes = card.querySelector(".stamp.yes"), no = card.querySelector(".stamp.no");
+  card.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; x0=e.clientX; y0=e.clientY; dx=0; dragging=false; card.style.transition="none"; });
+  card.addEventListener("pointermove", e => {
+    if (x0===null) return; dx = e.clientX - x0; const dy = e.clientY - y0;
+    if (!dragging && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { dragging = true; card.setPointerCapture(e.pointerId); }
+    if (!dragging) return;
+    card.style.transform = `translateX(${dx}px) rotate(${dx/20}deg)`;
+    yes.style.opacity = Math.max(0, Math.min(1, dx/100)); no.style.opacity = Math.max(0, Math.min(1, -dx/100));
+  });
+  const end = () => {
+    if (x0===null) return; x0=null;
+    if (dragging && Math.abs(dx) > 110) return flyOut(dx > 0);
+    card.style.transition = "transform .2s"; card.style.transform = ""; yes.style.opacity = no.style.opacity = 0;
+  };
+  card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);
+}
+
+// ---------- edit ----------
+let editing = null;
+function openEditor(s){ editing = s; $("#ed-title").value = s.title||""; $("#ed-caption").value = s.caption||""; $("#ed-tags").value = s.hashtags||""; $("#editor").showModal(); }
+$("#editor").addEventListener("close", async () => {
+  if ($("#editor").returnValue !== "save" || !editing) return;
+  const patch = {title:$("#ed-title").value.trim(), caption:$("#ed-caption").value.trim(), hashtags:$("#ed-tags").value.trim()};
+  const {error} = await sb.from("stories").update(patch).eq("id", editing.id);
+  if (error) return toast("Couldn't save the edit");
+  Object.assign(editing, patch); toast("Saved"); view === "review" ? renderDeck() : renderReady();
+});
+
+// ---------- to post ----------
+async function renderReady(){
+  const box = $("#ready");
+  if (!ready.length){ box.innerHTML = `<div class="empty"><b>Nothing waiting</b>Videos you approve land here, ready to post.</div>`; return; }
+  const rows = await Promise.all(ready.map(async s => {
+    const url = s.video_path ? await signedUrl(s.video_path) : null;
+    return `<div class="row" data-id="${s.id}"><span class="cat">${esc(s.category||"Story")}</span><div class="ttl">${esc(s.title)}</div>
+      <div class="cap">${esc(s.caption||"")} ${esc(s.hashtags||"")}</div>
+      <div class="row-actions">${url?`<a class="pill" href="${url}" target="_blank" rel="noopener">Open video</a>`:""}
+        <button class="pill" data-act="copy">Copy caption</button><button class="pill" data-act="edit">Edit</button>
+        <button class="pill solid" data-act="posted">Mark posted</button></div></div>`;
+  }));
+  box.innerHTML = rows.join("");
+}
+$("#ready").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const s = ready.find(r => r.id === b.closest(".row").dataset.id); if (!s) return;
+  if (b.dataset.act === "copy"){ try { await navigator.clipboard.writeText(`${s.caption||""}\n\n${s.hashtags||""}`.trim()); toast("Caption copied"); } catch { toast("Couldn't copy"); } }
+  if (b.dataset.act === "edit") openEditor(s);
+  if (b.dataset.act === "posted"){
+    const {error} = await sb.from("stories").update({status:"posted", posted_at:new Date().toISOString()}).eq("id", s.id);
+    if (error) return toast("Couldn't update");
+    ready = ready.filter(r => r.id !== s.id); renderCounts(); renderReady(); toast("Marked posted");
+  }
+});
+
+// ---------- tabs ----------
+function show(v){
+  view = v; $("#tab-review").setAttribute("aria-selected", v==="review"); $("#tab-ready").setAttribute("aria-selected", v==="ready");
+  $("#review").hidden = v!=="review"; $("#ready").hidden = v!=="ready";
+  v === "review" ? renderDeck() : renderReady();
+}
+$("#tab-review").onclick = () => show("review");
+$("#tab-ready").onclick = () => show("ready");
+
+async function start(){
+  $("#login").hidden = true; $("#tabs").hidden = false; show("review"); await load();
+}
+(async () => {
+  const {data} = await sb.auth.getSession();
+  if (data.session) start(); else { $("#login").hidden = false; }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && $("#login").hidden) load(); });
+})();
+</script>
+</body>
+</html>
