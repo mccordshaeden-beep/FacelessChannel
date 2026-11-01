@@ -81,6 +81,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .acct input[type=text],.acct select{font:15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px;width:100%}
 .chk{display:flex;align-items:center;gap:10px;font-size:14px}
 .chk input{width:20px;height:20px;accent-color:var(--yes);margin:0}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+.links a{border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:8px 13px;font:600 13px var(--body);text-decoration:none}
+.links a.main{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .gate{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:9px;line-height:1.45}
 .note{font-size:13px;color:var(--muted);background:var(--card);border-radius:12px;padding:12px 14px;line-height:1.45}
 .note b{color:var(--accent)}
@@ -305,6 +308,17 @@ const GATES = {
   facebook:"<b>Pays at</b> about 10K followers plus watch time, through Content Monetization.",
   snapchat:"<b>Pays at</b> 50K followers. Fully AI videos are excluded, so wait for your own voice."
 };
+function acctLinks(a){
+  const h = encodeURIComponent((a.handle||"").replace(/^@/,"").trim());
+  const L = {
+    tiktok:   [[h ? `https://www.tiktok.com/@${h}` : "https://www.tiktok.com/", "Open TikTok"], ["https://www.tiktok.com/tiktokstudio", "TikTok Studio"]],
+    youtube:  [[h ? `https://www.youtube.com/@${h}` : "https://www.youtube.com/", "Open channel"], ["https://studio.youtube.com/", "YouTube Studio"]],
+    instagram:[[h ? `https://www.instagram.com/${h}/` : "https://www.instagram.com/", "Open Instagram"], ["https://business.facebook.com/latest/home", "Meta Business Suite"]],
+    facebook: [["https://www.facebook.com/pages/?category=your_pages", "Your Pages"], ["https://business.facebook.com/latest/home", "Meta Business Suite"]],
+    snapchat: [[h ? `https://www.snapchat.com/add/${h}` : "https://www.snapchat.com/", "Open Snapchat"]],
+  }[a.platform] || [];
+  return `<div class="links">${L.map(([u,n],i)=>`<a${i===0?' class="main"':""} href="${u}" target="_blank" rel="noopener">${n}</a>`).join("")}</div>`;
+}
 const ACCT_STATES = ["Not started","Account created","Profile done"];
 let accounts = [];
 async function loadAccounts(){
@@ -319,6 +333,7 @@ function renderAccounts(){
   box.innerHTML = `<div class="note"><b>No passwords here.</b> Keep them in your password manager. This page tracks which email and handle you used and whether 2-step verification is on. ${done} of ${accounts.length} ready.</div>` +
     accounts.map(a => `<article class="acct" data-p="${a.platform}">
       <div class="acct-top"><span class="acct-name">${esc(a.name)}</span><span class="state ${a.status==="Profile done"?"done":a.status==="Account created"?"mid":""}">${esc(a.status)}</span></div>
+      ${acctLinks(a)}
       <label class="f">Status<select id="ac-st-${a.platform}" data-k="status">${ACCT_STATES.map(s=>`<option${s===a.status?" selected":""}>${s}</option>`).join("")}</select></label>
       <label class="f">Handle<input type="text" id="ac-h-${a.platform}" data-k="handle" value="${esc(a.handle)}" placeholder="@handle" autocomplete="off" autocapitalize="off"></label>
       <label class="f">Login email<input type="text" id="ac-e-${a.platform}" data-k="login_email" value="${esc(a.login_email)}" placeholder="channel Gmail" autocomplete="off" autocapitalize="off"></label>
@@ -332,7 +347,7 @@ $("#accounts").addEventListener("change", async e => {
   const {error} = await sb.from("accounts").update({[el.dataset.k]: val, updated_at:new Date().toISOString()}).eq("platform", card.dataset.p);
   if (error) return toast("Couldn't save");
   const a = accounts.find(x => x.platform === card.dataset.p); if (a) a[el.dataset.k] = val;
-  toast("Saved"); if (el.dataset.k === "status") renderAccounts();
+  toast("Saved"); if (el.dataset.k === "status" || el.dataset.k === "handle") renderAccounts();
 });
 
 // ---------- tabs ----------
